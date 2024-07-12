@@ -19,16 +19,164 @@
     </header>
     <main>
         <section id="projects">
-            <h2>Project 1</h2>
-            <p>TBD</p>
-            <h2>Project 2</h2>
-            <p>TBD</p>
-            <h2>Project 3</h2>
-            <p>TBD</p>
+            <h2>Project 1: Planetary Orbits Simulation</h2>
+            <p>Explore the planetary orbits simulation using Pygame and WebAssembly.</p>
+            
+            <form id="inputs-form">
+                <label for="initial-radius">Initial Radius (meters):</label>
+                <input type="number" id="initial-radius" name="initial-radius" value="150" step="10">
+                
+                <label for="initial-velocity">Initial Velocity (m/s):</label>
+                <input type="number" id="initial-velocity" name="initial-velocity" value="0" step="0.1">
+                
+                <label for="initial-angle">Initial Angle (degrees):</label>
+                <input type="number" id="initial-angle" name="initial-angle" value="45" step="1">
+
+                <label for="m1">Mass of Sun (kg):</label>
+                <input type="number" id="m1" name="m1" value="1.9891e30" step="1e28">
+                
+                <label for="m2">Mass of Planet (kg):</label>
+                <input type="number" id="m2" name="m2" value="5.9722e24" step="1e22">
+                
+                <label for="ang-moment">Angular Momentum (kg m²/s):</label>
+                <input type="number" id="ang-moment" name="ang-moment" value="2.7e40" step="1e38">
+                
+                <label for="time-step">Time Step (s):</label>
+                <input type="number" id="time-step" name="time-step" value="0.1" step="0.01">
+                
+                <button type="button" onclick="runPygame()">Start Simulation</button>
+            </form>
+
+            <div id="simulation-container">
+                <canvas id="pygame-canvas" width="800" height="600"></canvas>
+            </div>
         </section>
     </main>
     <footer>
         <p>© 2024 Vincent Razo</p>
     </footer>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.21.3/full/pyodide.js"></script>
+    <script type="text/javascript">
+        let pyodide;
+
+        async function runPygame() {
+            if (!pyodide) {
+                pyodide = await loadPyodide();
+                await pyodide.loadPackage("pygame");
+            }
+
+            // Get user inputs
+            const initialRadius = parseFloat(document.getElementById('initial-radius').value);
+            const initialVelocity = parseFloat(document.getElementById('initial-velocity').value);
+            const initialAngle = parseFloat(document.getElementById('initial-angle').value);
+            const m1 = parseFloat(document.getElementById('m1').value);
+            const m2 = parseFloat(document.getElementById('m2').value);
+            const angMoment = parseFloat(document.getElementById('ang-moment').value);
+            const timeStep = parseFloat(document.getElementById('time-step').value);
+
+            const thetaNot = initialAngle * Math.PI / 180;  // Convert degrees to radians
+
+            // Define the Python code as a template string
+            const code = `
+import numpy as np
+import pygame as pg
+
+# Initialize Global Variables
+G = 6.6743 * 10**(-11)  # Gravitational Constant
+
+# Initialize Pygame
+pg.init()
+pg.font.init()
+
+# Set up display
+width, height = 800, 600
+screen = pg.display.set_mode((width, height))
+pg.display.set_caption("Planet Orbits Simulation")
+
+# Colors
+black = (0, 0, 0)
+dark_blue = (25, 25, 112)
+white = (255, 255, 255)
+yellow = (255, 255, 0)
+
+# Initialize Variables from user inputs
+initial_radius = ${initialRadius}
+initial_velocity = ${initialVelocity}
+initial_angle = ${initialAngle}
+
+m_1 = ${m1}
+m_2 = ${m2}
+ang_moment = ${angMoment}
+time_step = ${timeStep}
+theta_not = ${thetaNot}
+
+# Initialize Position Vector
+r = initial_radius
+x = r * np.cos(theta_not)
+y = r * np.sin(theta_not)
+planet_pos = np.array([x, y])
+pos_vec = np.array([r, initial_velocity, theta_not])
+
+# RK4 Step Update Function
+def RK4_StepUpdate(pos_vec, time_step):
+    r, r_dot, theta = pos_vec
+    theta_dot = ang_moment / (m_2 * r**2)
+    r_dot_dot = (ang_moment**2 / (m_2**2 * r**3)) - (G * m_1 / r**2)
+    
+    k1_r = r_dot
+    k1_r_dot = r_dot_dot
+    k1_theta = theta_dot
+    
+    k2_r = r_dot + 0.5 * time_step * k1_r_dot
+    k2_r_dot = r_dot_dot + 0.5 * time_step * k1_theta
+    k2_theta = theta_dot
+    
+    k3_r = r_dot + 0.5 * time_step * k2_r_dot
+    k3_r_dot = r_dot_dot + 0.5 * time_step * k2_theta
+    k3_theta = theta_dot
+    
+    k4_r = r_dot + time_step * k3_r_dot
+    k4_r_dot = r_dot_dot + time_step * k3_theta
+    k4_theta = theta_dot
+    
+    r_next = r + (time_step / 6) * (k1_r + 2 * k2_r + 2 * k3_r + k4_r)
+    r_dot_next = r_dot + (time_step / 6) * (k1_r_dot + 2 * k2_r_dot + 2 * k3_r_dot + k4_r_dot)
+    theta_next = theta + (time_step / 6) * (k1_theta + 2 * k2_theta + 2 * k3_theta + k4_theta)
+    
+    x_next = r_next * np.cos(theta_next)
+    y_next = r_next * np.sin(theta_next)
+    
+    return np.array([r_next, r_dot_next, theta_next]), np.array([x_next, y_next])
+
+# Main loop
+running = True
+while running:
+    screen.fill(dark_blue)  # Background color
+    
+    for event in pg.event.get():
+        if event.type == pg.QUIT:
+            running = False
+
+    # Update the position of the planet
+    pos_vec, planet_pos = RK4_StepUpdate(pos_vec, time_step)
+    
+    # Draw the Sun
+    pg.draw.circle(screen, yellow, (width // 2, height // 2), 20)
+    
+    # Draw the Planet
+    pg.draw.circle(screen, white, (int(width // 2 + planet_pos[0]), int(height // 2 + planet_pos[1])), 5)
+    
+    pg.display.flip()
+    pg.time.delay(50)
+
+pg.quit()
+            `;
+
+            await pyodide.runPythonAsync(code);
+        }
+
+        // Call runPygame when the page loads
+        runPygame();
+    </script>
 </body>
 </html>
