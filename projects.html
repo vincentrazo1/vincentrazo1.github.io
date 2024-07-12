@@ -20,7 +20,10 @@
     <main>
         <section id="projects">
             <h2>Project 1: Planetary Orbits Simulation</h2>
-            <p>Explore the planetary orbits simulation using Pygame and WebAssembly.</p>
+            <p>Explore my planetary orbits simulation and read about my analytical project report.</p>
+            <p>Here, I will either include a scrollable pdf of my report document or copy paste as sections in the html file.</p>
+            <p>I am also considering adding a navigation to the project header passing user to a new html file with the simulation and report document and only including an abstract in this section</p>
+            <p>Planetary Simulation:(Currently not working)</p>
             
             <form id="inputs-form">
                 <label for="initial-radius">Initial Radius (meters):</label>
@@ -44,6 +47,9 @@
                 <label for="time-step">Time Step (s):</label>
                 <input type="number" id="time-step" name="time-step" value="0.1" step="0.01">
                 
+                <label for="background-color">Background Color:</label>
+                <input type="color" id="background-color" name="background-color" value="#1e1e1e">
+
                 <button type="button" onclick="runPygame()">Start Simulation</button>
             </form>
 
@@ -61,8 +67,9 @@
 
         async function runPygame() {
             if (!pyodide) {
+                // Load Pyodide
                 pyodide = await loadPyodide();
-                await pyodide.loadPackage("pygame");
+                await pyodide.loadPackage(["pygame","numpy"]);
             }
 
             // Get user inputs
@@ -73,7 +80,7 @@
             const m2 = parseFloat(document.getElementById('m2').value);
             const angMoment = parseFloat(document.getElementById('ang-moment').value);
             const timeStep = parseFloat(document.getElementById('time-step').value);
-
+            const backgroundColor = document.getElementById('background-color').value;
             const thetaNot = initialAngle * Math.PI / 180;  // Convert degrees to radians
 
             // Define the Python code as a template string
@@ -94,8 +101,7 @@ screen = pg.display.set_mode((width, height))
 pg.display.set_caption("Planet Orbits Simulation")
 
 # Colors
-black = (0, 0, 0)
-dark_blue = (25, 25, 112)
+background_color = pg.Color('${backgroundColor}')
 white = (255, 255, 255)
 yellow = (255, 255, 0)
 
@@ -151,7 +157,7 @@ def RK4_StepUpdate(pos_vec, time_step):
 # Main loop
 running = True
 while running:
-    screen.fill(dark_blue)  # Background color
+    screen.fill(background_color)  # Background color
     
     for event in pg.event.get():
         if event.type == pg.QUIT:
@@ -172,11 +178,20 @@ while running:
 pg.quit()
             `;
 
-            await pyodide.runPythonAsync(code);
+            try {
+                await pyodide.runPythonAsync(code);
+            } catch (error) {
+                console.error("An error occurred while running the Python code:", error);
+            }
         }
 
-        // Call runPygame when the page loads
-        runPygame();
+        // Initialize Pyodide and load packages when the page loads
+        loadPyodide().then(async (pyodideInstance) => {
+            pyodide = pyodideInstance;
+            await pyodide.loadPackage("pygame");
+        }).catch(error => {
+            console.error("Failed to load Pyodide:", error);
+        });
     </script>
 </body>
 </html>
