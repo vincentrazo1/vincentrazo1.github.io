@@ -183,7 +183,7 @@ pg.quit()
         // Initialize Pyodide and load packages when the page loads
         loadPyodide().then(async (pyodideInstance) => {
             pyodide = pyodideInstance;
-            await pyodide.loadPackage("pygame");
+            await pyodide.loadPackage(["numpy","pygame"]);
         }).catch(error => {
             console.error("Failed to load Pyodide:", error);
         });
